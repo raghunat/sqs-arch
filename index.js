@@ -115,9 +115,6 @@ function Service(sqs) {
               default:
                 throw 'Object Constructor Type not supported.';
             }
-            // if (message.Body[prop] && message.Body[prop].constuctor !== validation[prop]) {
-            //   return false;
-            // }
           } else {
             return false;
           }
@@ -170,6 +167,11 @@ function Service(sqs) {
     return self;
   };
 
+  /**
+   * Removes a message from the sqs queue
+   * @param  {Object} message SQS Message object or proxy object with .ReceiptHandle
+   * @return {Object}         Service object chain
+   */
   self.removeMessage = function (message) {
     sqs.deleteMessage({
       QueueUrl: self.options.queue,
