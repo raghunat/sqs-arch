@@ -1,0 +1,20 @@
+{
+  "name": "sqs-arch",
+  "version": "0.0.1",
+  "description": "A Node.js SQS DSL wrappper for service oriented architecture",
+  "main": "index.js",
+  "scripts": {
+    "test": "node node_modules/mocha/bin/mocha test --recursive --watch"
+  },
+  "author": "Stephen Raghunath",
+  "license": "MIT",
+  "devDependencies": {
+    "mocha": "^2.2.5",
+    "should": "^7.0.2"
+  },
+  "dependencies": {
+    "async": "^1.4.0",
+    "aws-sdk": "^2.1.40",
+    "winston": "^1.0.1"
+  }
+}
