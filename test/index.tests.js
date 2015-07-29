@@ -2,9 +2,17 @@
 /* exported should */
 var should = require('should');
 var Service = require('../index.js');
+var fs = require('fs');
 var testService;
 
 describe('sqs-arch', function () {
+  before(function () {
+    fs.writeFileSync('./sqs-arch.json', '{}');
+  });
+  after(function () {
+    fs.unlinkSync('./sqs-arch.json');
+    fs.unlinkSync('./sqs-arch.sqlite');
+  });
   beforeEach(function () {
     var data = {
       Messages: [{
@@ -65,7 +73,7 @@ describe('sqs-arch', function () {
 
   it('#loadConfig', function (done) {
     testService.loadConfig().should.be.an.object; //jshint ignore:line
-    testService.loadConfig('testPath').should.be.an.object; //jshint ignore:line
+    testService.loadConfig('./sqs-arch.json').should.be.an.object; //jshint ignore:line
     done();
   });
 
@@ -118,13 +126,16 @@ describe('sqs-arch', function () {
   it('#start', function (done) {
     this.timeout(500);
     testService
-      .pollInterval(200)
+      .name('test')
+      .pollInterval(0.25)
       .process('case1', {
         Name: String
       }, function (input, done) {
         done(input);
-      });
-    testService.start();
+      })
+      .error(function (err) {
+        console.log(err);
+      }).start();
     setTimeout(function () {
       testService.stop();
       done();

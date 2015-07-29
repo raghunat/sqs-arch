@@ -19,6 +19,8 @@
   "dependencies": {
     "async": "^1.4.0",
     "aws-sdk": "^2.1.40",
+    "sequelize": "^3.5.1",
+    "sqlite3": "^3.0.9",
     "winston": "^1.0.1"
   }
 }
