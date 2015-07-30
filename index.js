@@ -3,6 +3,7 @@ var log = require('winston');
 var async = require('async');
 var Sequelize = require('sequelize');
 var sequelize;
+
 /**
  * Service constuctor to create services from Amazon SQS
  * @param {Object} sqs aws-sdk.SQS or mocked version for testing
@@ -12,7 +13,9 @@ function Service(sqs) {
   self.meta = {
     processes: []
   }; // contains meta information
-  self.options = {}; // contains sqs options
+  self.options = {
+    pollInterval: 10
+  }; // contains sqs options
   self.processes = []; // contains all the logics for processing a message from the queue
   self.registeredDone = null; // function called when done
   self.registeredError = null; // function called when error happenszz
@@ -70,15 +73,18 @@ function Service(sqs) {
    * Sets up the DB ORM
    * @param {String} uri Connection string for sql db types
    */
-  self.DB = function (uri) {
-    if (uri) {
-      sequelize = new Sequelize(uri);
+  self.DB = function (db, user, pass, opts) {
+    opts = opts || {};
+    if (db && user && pass) {
+      sequelize = new Sequelize(db, user, pass, opts);
+      self.customDB = true;
     } else {
       sequelize = new Sequelize(null, null, null, {
         dialect: 'sqlite',
         storage: './sqs-arch.sqlite'
       });
     }
+    return self;
   };
 
   /**
@@ -96,8 +102,22 @@ function Service(sqs) {
     return self;
   };
 
+  /**
+   * Adds a process use case for incoming messages
+   * @param  {String}   useCase    String Identifier for the case this logic applies
+   * @param  {Object}   validation KVP's where the value are data types to match inputs against
+   * @param  {Function} callback   Logic function to run when matched, gets the input, and done callbacks
+   * @return {Void}
+   */
   self.process = function (useCase, validation, callback) {
-    // TODO check params
+    // check params
+    if (!useCase && typeof useCase !== 'string') {
+      throw 'The argument you supplied for the use case is improper. It must be a string.';
+    } else if (typeof validation !== 'object') {
+      throw 'The argument you supplied for the validation is improper. It must be an object.';
+    } else if (typeof callback !== 'function') {
+      throw 'The argument you supplied for the callback is improper. It must be a function.';
+    }
     // TODO check already established use cases
     self.meta.processes.push({
       useCase: useCase,
@@ -107,7 +127,9 @@ function Service(sqs) {
     self.processes.push(function (message) {
       // Turn the body into an object
       try {
-        message.Body = JSON.parse(message.Body);
+        if (typeof message.Body !== 'object') {
+            message.Body = JSON.parse(message.Body);
+        }
       } catch (e) {
         return false;
       }
@@ -163,6 +185,13 @@ function Service(sqs) {
     return self;
   };
 
+  /**
+   * Stores items in the DB
+   * @param  {Object} err     Error if error occured
+   * @param  {Variant} output  Value passed back in Done call
+   * @param  {Object} message SQS message object
+   * @return {Void}
+   */
   self.report = function (err, output, message) {
     var status = 'success';
     var val = null;
@@ -173,7 +202,7 @@ function Service(sqs) {
       val = JSON.stringify(output);
     }
     self.Record.create({
-      messageId: message.messageId,
+      messageId: message.MessageId,
       createDate: new Date(),
       reportStatus: status,
       reference: message.Body.by,
@@ -230,10 +259,15 @@ function Service(sqs) {
     return self;
   };
 
+  /**
+   * Stops the polling interval for SQS
+   * @return {[type]} [description]
+   */
   self.stop = function () {
     if (self.interval) {
       clearInterval(self.interval);
     }
+    return self;
   };
 
   /**
@@ -244,21 +278,24 @@ function Service(sqs) {
     if (!self.configLoaded) {
       self.loadConfig();
     }
-    if (!self.Record) {
+    if (!self.customDB) {
       self.DB();
     }
     sqs = sqs || new AWS.SQS();
-    // TODO check if items have been created
+    // check if items have been created
+    if (!self.meta.name || !self.meta.description || !self.meta.version) {
+      throw 'Not all required items present. Each service needs a name, a description, and a version';
+    }
     // create queues if necessary
     async.waterfall([
       // Set up sqs-arch Meta DB and insert
       function (cb) {
         self.Meta = sequelize.define('sqs-arch-service', {
           name: Sequelize.STRING,
-          description: Sequelize.STRING,
+          description: Sequelize.STRING('max'),
           version: Sequelize.STRING,
           pollInterval: Sequelize.STRING,
-          processes: Sequelize.STRING
+          processes: Sequelize.STRING('max')
         });
         self.Meta.sync().then(function () {
           self.Meta.create({
@@ -290,7 +327,7 @@ function Service(sqs) {
             type: Sequelize.STRING
           },
           referenceValue: {
-            type: Sequelize.STRING
+            type: Sequelize.STRING('max')
           }
         });
 

@@ -21,6 +21,7 @@
     "aws-sdk": "^2.1.40",
     "sequelize": "^3.5.1",
     "sqlite3": "^3.0.9",
+    "tedious": "^1.11.2",
     "winston": "^1.0.1"
   }
 }
