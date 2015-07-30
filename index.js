@@ -11,7 +11,8 @@ var sequelize;
 function Service(sqs) {
   var self = this;
   self.meta = {
-    processes: []
+    processes: [],
+    queueBase: null
   }; // contains meta information
   self.options = {
     pollInterval: 10
@@ -367,6 +368,9 @@ function Service(sqs) {
         log.error(err);
       } else {
         self.options.QueueUrl = q.QueueUrl;
+        var base = q.QueueUrl.split('/');
+        base.pop();
+        self.meta.queueBase = base.join('/') + '/';
         // start polling
         self.interval = setInterval(function () {
           // Iterate through processes for each message for first match
