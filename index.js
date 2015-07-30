@@ -128,7 +128,7 @@ function Service(sqs) {
       // Turn the body into an object
       try {
         if (typeof message.Body !== 'object') {
-            message.Body = JSON.parse(message.Body);
+          message.Body = JSON.parse(message.Body);
         }
       } catch (e) {
         return false;
@@ -174,7 +174,10 @@ function Service(sqs) {
           self.registeredError(err);
           self.report(err, null, message);
         } else {
-          self.registeredDone(output);
+          self.registeredDone({
+            output: output,
+            message: message
+          });
           self.report(null, output, message);
         }
         // remove from queue either way
@@ -271,6 +274,23 @@ function Service(sqs) {
   };
 
   /**
+   * Pushes a message to another queue
+   * @param  {String}   queue   FullQueue Name
+   * @param  {Variant}   message Message body
+   * @param  {Function} cb      Callback with err,data
+   * @return {Void}
+   */
+  self.pushMessage = function (queue, message, cb) {
+    cb = cb || function () {}; //callback is not necessary
+    sqs.sendMessage({
+      QueueUrl: queue,
+      MessageBody: message
+    }, function(err, data) {
+      cb(err, data);
+    });
+  };
+
+  /**
    * Starts the service, including all bootstrapping necessary
    * @return {Void}
    */
@@ -301,7 +321,7 @@ function Service(sqs) {
           self.Meta.create({
             name: self.meta.name,
             description: self.meta.description,
-            version:self.meta.version,
+            version: self.meta.version,
             pollInterval: self.options.pollInterval.toString(),
             processes: JSON.stringify(self.meta.processes)
           }).then(function () {
