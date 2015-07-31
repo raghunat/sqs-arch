@@ -162,6 +162,11 @@ function Service(sqs) {
                 return false;
               }
               break;
+            case Date:
+              if (message.Body[prop].constructor !== Date) {
+                return false;
+              }
+              break;
             default:
               throw 'Object Constructor Type not supported.';
           }
