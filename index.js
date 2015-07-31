@@ -163,7 +163,7 @@ function Service(sqs) {
               }
               break;
             case Date:
-              if (message.Body[prop].constructor !== Date) {
+              if (new Date(message.Body[prop]) === 'Invalid Date') {
                 return false;
               }
               break;
