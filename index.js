@@ -175,16 +175,16 @@ function Service(sqs) {
         }
       }
       // use this process
-      callback(message.Body, function (err, output) {
+      callback(message.Body, function (err, output, group, count) {
         if (err) {
           self.registeredError(err);
-          self.report(err, null, message);
+          self.report(err, null, message, group, count);
         } else {
           self.registeredDone({
             output: output,
             message: message
           });
-          self.report(null, output, message);
+          self.report(null, output, message, group, count);
         }
         // remove from queue either way
         self.removeMessage(message);
@@ -201,21 +201,25 @@ function Service(sqs) {
    * @param  {Object} message SQS message object
    * @return {Void}
    */
-  self.report = function (err, output, message) {
-    var status = 'success';
+  self.report = function (err, output, message, group, count) {
+    var status = 1;
     var val = null;
     if (err) {
-      status = 'error';
+      status = 2;
       val = JSON.stringify(err);
     } else {
       val = JSON.stringify(output);
     }
+
     self.Record.create({
       messageId: message.MessageId,
-      createDate: new Date(),
-      reportStatus: status,
-      reference: message.Body.by,
-      referenceValue: val
+      originalMessageId: message.Body.originalMessageId,
+      reportStatusId: status,
+      referenceType: message.Body.by,
+      referenceValue: message.Body[message.Body.by],
+      group: group,
+      numberAffected: count,
+      result: val
     }).then(function () {});
   };
 
@@ -340,21 +344,14 @@ function Service(sqs) {
       // Set up Service DB
       function (cb) {
         self.Record = sequelize.define(self.meta.name, {
-          messageId: {
-            type: Sequelize.STRING
-          },
-          createDate: {
-            type: Sequelize.DATE
-          },
-          reportStatus: {
-            type: Sequelize.STRING
-          },
-          reference: {
-            type: Sequelize.STRING
-          },
-          referenceValue: {
-            type: Sequelize.STRING('max')
-          }
+          messageId: Sequelize.STRING,
+          originalMessageId: Sequelize.STRING,
+          reportStatusId: Sequelize.INTEGER,
+          referenceType: Sequelize.STRING('max'),
+          referenceValue: Sequelize.STRING('max'),
+          group: Sequelize.STRING,
+          result: Sequelize.STRING('max'),
+          numberAffected: Sequelize.INTEGER
         });
 
         self.Record.sync().then(function () {
