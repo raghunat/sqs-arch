@@ -213,7 +213,7 @@ function Service(sqs) {
 
     self.Record.create({
       messageId: message.MessageId,
-      originalMessageId: message.Body.originalMessageId,
+      originalMessageId: message.Body.originalMessageId || message.MessageId,
       reportStatusId: status,
       referenceType: message.Body.by,
       referenceValue: message.Body[message.Body.by],
