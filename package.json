@@ -1,6 +1,6 @@
 {
   "name": "sqs-arch",
-  "version": "0.0.9",
+  "version": "0.0.10",
   "description": "A Node.js SQS DSL wrappper for service oriented architecture",
   "main": "index.js",
   "scripts": {
