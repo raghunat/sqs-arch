@@ -10,8 +10,12 @@ describe('sqs-arch', function () {
     fs.writeFileSync('./sqs-arch.json', '{}');
   });
   after(function () {
-    fs.unlinkSync('./sqs-arch.json');
-    fs.unlinkSync('./sqs-arch.sqlite');
+    if (fs.existsSync('./sqs-arch.json')) {
+      fs.unlinkSync('./sqs-arch.json');
+    }
+    if (fs.existsSync('./sqs-arch.sqlite')) {
+      fs.unlinkSync('./sqs-arch.sqlite');
+    }
   });
   beforeEach(function () {
     var data = {
@@ -24,7 +28,7 @@ describe('sqs-arch', function () {
 
       },
       createQueue: function (params, cb) {
-        cb(null, params.QueueName);
+        cb(null, {QueueUrl: params.QueueName});
       },
       receiveMessage: function (params, cb) {
         cb(null, data);
@@ -123,18 +127,31 @@ describe('sqs-arch', function () {
     });
   });
 
+  it('#getSQLTypeLength', function (done) {
+    testService.getSQLTypeLength('string').should.equal(255);
+    testService.dbOptions = {dialect:'mssql'};
+    testService.getSQLTypeLength('string').should.equal('max');
+    (function () {
+      testService.getSQLTypeLength();
+    }).should.throw();
+    done();
+  });
+
   it('#start', function (done) {
     this.timeout(500);
     testService
       .name('test')
+      .description('a')
+      .version('0.0.1')
       .pollInterval(0.25)
       .process('case1', {
         Name: String
       }, function (input, done) {
-        done(input);
+        done(null, input);
       })
-      .error(function (err) {
-        console.log(err);
+      .done(function () {
+      })
+      .error(function () {
       }).start();
     setTimeout(function () {
       testService.stop();

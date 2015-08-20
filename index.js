@@ -3,7 +3,7 @@ var log = require('winston');
 var async = require('async');
 var Sequelize = require('sequelize');
 var sequelize;
-
+var semver = require('semver');
 /**
  * Service constuctor to create services from Amazon SQS
  * @param {Object} sqs aws-sdk.SQS or mocked version for testing
@@ -56,8 +56,12 @@ function Service(sqs) {
    * @return {Object}         Service object chain
    */
   self.version = function (version) {
-    self.meta.version = version;
-    return self;
+    if (semver.valid(version)) {
+      self.meta.version = version;
+      return self;
+    } else {
+      throw new Error('You use semver format for your version. Example \'1.9.4\'');
+    }
   };
 
   /**
@@ -70,19 +74,29 @@ function Service(sqs) {
     return self;
   };
 
+  self.getSQLTypeLength = function (type) {
+    switch (type) {
+      case 'string':
+        return (self.dbOptions && self.dbOptions.dialect === 'mssql') ? 'max' : 255;
+      default:
+        throw new Error('SQL Type UNKNOWN');
+    }
+  };
+
   /**
    * Sets up the DB ORM
    * @param {String} uri Connection string for sql db types
    */
   self.DB = function (db, user, pass, opts) {
-    opts = opts || {};
+    self.dbOptions = opts || {};
     if (db && user && pass) {
-      sequelize = new Sequelize(db, user, pass, opts);
+      sequelize = new Sequelize(db, user, pass, self.dbOptions);
       self.customDB = true;
     } else {
       sequelize = new Sequelize(null, null, null, {
         dialect: 'sqlite',
-        storage: './sqs-arch.sqlite'
+        storage: './sqs-arch.sqlite',
+        logging: false
       });
     }
     return self;
@@ -113,11 +127,11 @@ function Service(sqs) {
   self.process = function (useCase, validation, callback) {
     // check params
     if (!useCase && typeof useCase !== 'string') {
-      throw 'The argument you supplied for the use case is improper. It must be a string.';
+      throw new Error('The argument you supplied for the use case is improper. It must be a string.');
     } else if (typeof validation !== 'object') {
-      throw 'The argument you supplied for the validation is improper. It must be an object.';
+      throw new Error('The argument you supplied for the validation is improper. It must be an object.');
     } else if (typeof callback !== 'function') {
-      throw 'The argument you supplied for the callback is improper. It must be a function.';
+      throw new Error('The argument you supplied for the callback is improper. It must be a function.');
     }
     // TODO check already established use cases
     self.meta.processes.push({
@@ -168,7 +182,7 @@ function Service(sqs) {
               }
               break;
             default:
-              throw 'Object Constructor Type not supported.';
+              throw new Error('Object Constructor Type not supported.');
           }
         } else {
           return false;
@@ -195,10 +209,12 @@ function Service(sqs) {
   };
 
   /**
-   * Stores items in the DB
-   * @param  {Object} err     Error if error occured
-   * @param  {Variant} output  Value passed back in Done call
-   * @param  {Object} message SQS message object
+   * Stores service result into the DB
+   * @param  {Object} err     Error if occured
+   * @param  {Variant} output  Logic Results
+   * @param  {Object} message SQS Object
+   * @param  {String} group   Reference Value
+   * @param  {Integer} count   Number of results associated
    * @return {Void}
    */
   self.report = function (err, output, message, group, count) {
@@ -249,7 +265,6 @@ function Service(sqs) {
    * @return {Object}         Service object chain
    */
   self.removeMessage = function (message) {
-    console.log('going to delete', message.MessageId);
     sqs.deleteMessage({
       QueueUrl: self.options.QueueUrl,
       ReceiptHandle: message.ReceiptHandle
@@ -295,7 +310,7 @@ function Service(sqs) {
     sqs.sendMessage({
       QueueUrl: queue,
       MessageBody: message
-    }, function(err, data) {
+    }, function (err, data) {
       cb(err, data);
     });
   };
@@ -314,7 +329,7 @@ function Service(sqs) {
     sqs = sqs || new AWS.SQS();
     // check if items have been created
     if (!self.meta.name || !self.meta.description || !self.meta.version) {
-      throw 'Not all required items present. Each service needs a name, a description, and a version';
+      throw new Error('Not all required items present. Each service needs a name, a description, and a version');
     }
     // create queues if necessary
     async.waterfall([
@@ -322,18 +337,21 @@ function Service(sqs) {
       function (cb) {
         self.Meta = sequelize.define('sqs-arch-service', {
           name: Sequelize.STRING,
-          description: Sequelize.STRING('max'),
+          description: Sequelize.STRING(self.getSQLTypeLength('string')),
           version: Sequelize.STRING,
           pollInterval: Sequelize.STRING,
-          processes: Sequelize.STRING('max')
+          processes: Sequelize.STRING(self.getSQLTypeLength('string'))
         });
         self.Meta.sync().then(function () {
-          self.Meta.create({
-            name: self.meta.name,
-            description: self.meta.description,
-            version: self.meta.version,
-            pollInterval: self.options.pollInterval.toString(),
-            processes: JSON.stringify(self.meta.processes)
+          // Create meta if doesnt exist or version is updated
+          self.Meta.findOrCreate({
+            where: {
+              name: self.meta.name,
+              description: self.meta.description,
+              version: self.meta.version,
+              pollInterval: self.options.pollInterval.toString(),
+              processes: JSON.stringify(self.meta.processes)
+            }
           }).then(function () {
             cb();
           }).catch(function (e) {
@@ -347,10 +365,10 @@ function Service(sqs) {
           messageId: Sequelize.STRING,
           originalMessageId: Sequelize.STRING,
           reportStatusId: Sequelize.INTEGER,
-          referenceType: Sequelize.STRING('max'),
-          referenceValue: Sequelize.STRING('max'),
+          referenceType: Sequelize.STRING(self.getSQLTypeLength('string')),
+          referenceValue: Sequelize.STRING(self.getSQLTypeLength('string')),
           group: Sequelize.STRING,
-          result: Sequelize.STRING('max'),
+          result: Sequelize.STRING(self.getSQLTypeLength('string')),
           numberAffected: Sequelize.INTEGER
         });
 
