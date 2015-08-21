@@ -245,6 +245,7 @@ function Service(sqs) {
   /**
    * Stores a local asset based on the fully qualified path name
    * @param {String} filePath Fully qualified path to file asset.
+   * @return {Object}          Service object chain
    */
   self.asset = function (filePath) {
     self.meta.assets.push({
@@ -252,6 +253,7 @@ function Service(sqs) {
       type: path.extname(filePath),
       data: fs.readFileSync(filePath, 'utf8')
     });
+    return self;
   };
 
   /**
