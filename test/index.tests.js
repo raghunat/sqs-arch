@@ -97,6 +97,14 @@ describe('sqs-arch', function () {
       }*/
   );
 
+  it('#asset'
+    /*, function (done) {
+        testService.report.should.be.a.Function; //jshint ignore:line
+
+        done();
+      }*/
+  );
+
   it('#done', function (done) {
     testService.done(function () {})
       .registeredDone.should.be.a.Function; //jshint ignore:line
@@ -138,7 +146,8 @@ describe('sqs-arch', function () {
   });
 
   it('#start', function (done) {
-    this.timeout(500);
+    this.timeout(3000);
+    this.slow(3000);
     testService
       .name('test')
       .description('a')
@@ -150,12 +159,14 @@ describe('sqs-arch', function () {
         done(null, input);
       })
       .done(function () {
+        //all done
       })
-      .error(function () {
+      .error(function (err) {
+        console.log(err);
       }).start();
     setTimeout(function () {
       testService.stop();
       done();
-    }, 450);
+    }, 1000);
   });
 });

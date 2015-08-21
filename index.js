@@ -4,6 +4,8 @@ var async = require('async');
 var Sequelize = require('sequelize');
 var sequelize;
 var semver = require('semver');
+var fs = require('fs');
+var path = require('path');
 /**
  * Service constuctor to create services from Amazon SQS
  * @param {Object} sqs aws-sdk.SQS or mocked version for testing
@@ -240,6 +242,24 @@ function Service(sqs) {
   };
 
   /**
+   * Stores a local asset based on the fully qualified path name
+   * @param {String} filePath Fully qualified path to file asset.
+   */
+  self.asset = function (filePath) {
+    fs.readFile(filePath, 'utf8', function (err, data) {
+      if (err) {
+        log.error(err);
+      } else {
+        self.assets.push({
+          name: path.basename(filePath),
+          type: path.extname(filePath),
+          data: data
+        });
+      }
+    });
+  };
+
+  /**
    * Completion function when a message is finished processing (without error).
    * @param  {Function} callback Callback function called with the returned value from the process function
    * @return {Object}          Service object chain
@@ -340,7 +360,8 @@ function Service(sqs) {
           description: Sequelize.STRING(self.getSQLTypeLength('string')),
           version: Sequelize.STRING,
           pollInterval: Sequelize.STRING,
-          processes: Sequelize.STRING(self.getSQLTypeLength('string'))
+          processes: Sequelize.STRING(self.getSQLTypeLength('string')),
+          assets: Sequelize.STRING(self.getSQLTypeLength('string'))
         });
         self.Meta.sync().then(function () {
           // Create meta if doesnt exist or version is updated
@@ -350,7 +371,8 @@ function Service(sqs) {
               description: self.meta.description,
               version: self.meta.version,
               pollInterval: self.options.pollInterval.toString(),
-              processes: JSON.stringify(self.meta.processes)
+              processes: JSON.stringify(self.meta.processes),
+              assets: JSON.stringify(self.meta.assets)
             }
           }).then(function () {
             cb();
