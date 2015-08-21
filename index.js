@@ -14,6 +14,7 @@ function Service(sqs) {
   var self = this;
   self.meta = {
     processes: [],
+    assets: [],
     queueBase: null
   }; // contains meta information
   self.options = {
