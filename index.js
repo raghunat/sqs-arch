@@ -247,16 +247,10 @@ function Service(sqs) {
    * @param {String} filePath Fully qualified path to file asset.
    */
   self.asset = function (filePath) {
-    fs.readFile(filePath, 'utf8', function (err, data) {
-      if (err) {
-        log.error(err);
-      } else {
-        self.assets.push({
-          name: path.basename(filePath),
-          type: path.extname(filePath),
-          data: data
-        });
-      }
+    self.meta.assets.push({
+      name: path.basename(filePath),
+      type: path.extname(filePath),
+      data: fs.readFileSync(filePath, 'utf8')
     });
   };
 
